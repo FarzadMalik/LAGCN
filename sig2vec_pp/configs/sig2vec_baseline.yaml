@@ -1,0 +1,68 @@
+# ─── Sig2Vec 1D-CNN baseline on MSDS-ChS ───────────────────────────
+# Reproduces the original Sig2Vec architecture from:
+#   Lai et al., "SynSig2Vec: Forgery-Free Learning of Dynamic Signature
+#   Representations by Sigma Lognormal-Based Synthesis and 1D CNN",
+#   IEEE TPAMI 2021.
+
+# ── Dataset ──────────────────────────────────────────────────────────
+dataset:
+  name: "msds_chs"
+  root: "./data/MSDS/MSDS-ChS"
+  modality: "online"          # online | offline | multimodal
+  sessions: [1, 2]
+  num_users: 402
+  features: ["x", "y", "p"]  # subset of {x, y, p, t, u}
+  max_seq_len: 800            # pad / truncate online sequences
+  image_size: [128, 256]      # H×W for offline images
+
+# ── Train / val / test split ─────────────────────────────────────────
+split:
+  train_users: 300
+  val_users: 50
+  test_users: 52
+  seed: 42
+
+# ── Model ────────────────────────────────────────────────────────────
+model:
+  name: "sig2vec"
+  n_in: 3                     # must match len(dataset.features)
+  conv_channels: [64, 128, 256]
+  selective_pooling:
+    head_dim: 32
+    num_heads: 16
+  embedding_dim: 1024         # 512 + 512 from two pooling heads
+
+# ── Training ─────────────────────────────────────────────────────────
+training:
+  epochs: 200
+  batch_tasks: 4              # tasks (users) per batch
+  shots_genuine: 5            # genuine refs per task
+  shots_forgery: 10           # forgery refs per task
+  optimizer:
+    type: "sgd"
+    lr: 0.001
+    momentum: 0.9
+    weight_decay: 1.0e-5
+    nesterov: true
+  scheduler:
+    type: "step"
+    step_size: 150
+    gamma: 0.1
+  label_smoothing: 0.1
+  ap_loss_alpha: 6.0
+
+# ── Evaluation ───────────────────────────────────────────────────────
+evaluation:
+  metrics: ["eer", "fnmr@fmr=0.01", "fnmr@fmr=0.001"]
+
+# ── Logging ──────────────────────────────────────────────────────────
+logging:
+  use_wandb: false
+  wandb_project: "sig2vec_pp"
+  log_interval: 50
+  save_interval: 25
+  checkpoint_dir: "./checkpoints"
+
+# ── Reproducibility ─────────────────────────────────────────────────
+seed: 111
+deterministic: true
